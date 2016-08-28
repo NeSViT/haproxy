@@ -8,13 +8,13 @@ haproxy1_cpus = '1'
 haproxy1_ram = '512'
 
 # Variables for VM: haproxy2
-#haproxy2_box = 'debian/jessie64'
-#haproxy2_hostname = 'haproxy2'
-#haproxy2_domain = 'lab.int'
-#haproxy2_ip_private = '10.10.100.9'
-#haproxy2_ip_public = '192.168.50.100'
-#haproxy2_cpus = '1'
-#haproxy2_ram = '512'
+haproxy2_box = 'ubuntu/trusty64'
+haproxy2_hostname = 'haproxy2'
+haproxy2_domain = 'lab.int'
+haproxy2_ip_private = '10.10.100.9'
+haproxy2_ip_public = '192.168.50.99'
+haproxy2_cpus = '1'
+haproxy2_ram = '512'
 
 # Variables for VM: web1 (git.lab.int)
 web1_box = 'ubuntu/trusty64'
@@ -72,9 +72,29 @@ Vagrant.configure("2") do |config|
     
 	    # START haproxy1 PROVISION SECTION
 	    haproxy1.vm.provision "shell", inline: <<-SHELL
+	    	
 	    	apt-get install -y haproxy mtr
 
+	    	echo "Enable HAProxy service"
+			sudo cp /vagrant/haproxy /etc/default/haproxy
+
+			echo "Put HAProxy config"
+			sudo cp /vagrant/haproxy-master.cfg /etc/haproxy/haproxy.cfg
+
+			echo "PUT LINE TO sysctl.conf"
+			sudo chmod 666 /etc/sysctl.conf 
+			sudo echo "net.ipv4.ip_nonlocal_bind=1" >> /etc/sysctl.conf
+			sudo chmod 644 /etc/sysctl.conf
+			sudo sysctl -p
 	    	
+	    	echo "INSTALL KEEPALIVED"
+	    	sudo apt-get -y install keepalived
+
+	    	echo "COPY CONFIG FOR KEEPALIVED"
+	    	sudo cp /vagrant/keepalived-master.conf /etc/keepalived/keepalived.conf
+
+	    	service haproxy restart
+	    	service keepalived restart
 
 	    SHELL
 
@@ -85,30 +105,52 @@ Vagrant.configure("2") do |config|
 # End Config for VM: haproxy1
 # ==========================
 
-## ==========================
-## Start  Config for VM: haproxy2
-#
-#	config.vm.define "backend" do |haproxy2|
-#		
-#		haproxy2.vm.box = haproxy2_box
-#	  	haproxy2.vm.hostname = haproxy2_hostname +'.'+ haproxy2_domain
-#	  	haproxy2.vm.network "private_network", ip: haproxy2_ip_private
-#		haproxy2.vm.network "public_network", ip: haproxy2_ip_public
-#
-#		haproxy2.vm.provider "virtualbox" do |haproxy2|
-#			haproxy2.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-#			haproxy2.cpus = haproxy2_cpus
-#			haproxy2.memory = haproxy2_ram
-#  		end
-#    
-#	    # START haproxy2 PROVISION SECTION
-#	    haproxy2.vm.provision "shell", inline: <<-SHELL
-#	        apt-get install haproxy
-#	    SHELL
-#
-#    # FINISH haproxy2 PROVISION SECTION
-#
-#  end
+# ==========================
+# Start  Config for VM: haproxy2
+
+	config.vm.define "haproxy2" do |haproxy2|
+		
+		haproxy2.vm.box = haproxy2_box
+	  	haproxy2.vm.hostname = haproxy2_hostname +'.'+ haproxy2_domain
+	  	haproxy2.vm.network "private_network", ip: haproxy2_ip_private
+		haproxy2.vm.network "public_network", bridge: ["wlo1"], ip: haproxy2_ip_public
+
+		haproxy2.vm.provider "virtualbox" do |haproxy2|
+			haproxy2.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+			haproxy2.cpus = haproxy2_cpus
+			haproxy2.memory = haproxy2_ram
+  		end
+    
+	    # START haproxy2 PROVISION SECTION
+	    haproxy2.vm.provision "shell", inline: <<-SHELL
+	        
+	        apt-get install -y haproxy mtr
+
+	    	echo "Enable HAProxy service"
+			sudo cp /vagrant/haproxy /etc/default/haproxy
+
+			echo "Put HAProxy config"
+			sudo cp /vagrant/haproxy-backup.cfg /etc/haproxy/haproxy.cfg
+
+			echo "PUT LINE TO sysctl.conf"
+			sudo chmod 666 /etc/sysctl.conf 
+			sudo echo "net.ipv4.ip_nonlocal_bind=1" >> /etc/sysctl.conf
+			sudo chmod 644 /etc/sysctl.conf
+			sudo sysctl -p
+
+	    	echo "INSTALL KEEPALIVED"
+	    	sudo apt-get -y install keepalived
+
+	    	echo "COPY CONFIG FOR KEEPALIVED"
+	    	sudo cp /vagrant/keepalived-backup.conf /etc/keepalived/keepalived.conf
+
+	    	service haproxy restart
+	    	service keepalived restart
+
+	    SHELL
+    	# FINISH haproxy2 PROVISION SECTION
+
+  	end
 
 # End Config for VM: haproxy2
 # ==========================
